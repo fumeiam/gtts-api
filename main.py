@@ -16,6 +16,11 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 app = FastAPI()
 
+# Health check endpoint for uptime monitors
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "TTS bot is alive!"}
+
 # Track inactivity timers per guild
 inactivity_tasks = {}
 
@@ -95,8 +100,7 @@ async def auto_disconnect(guild_id: int):
 
 async def start_fastapi():
     PORT = int(os.environ.get("PORT", 8000))  # fallback to 8000 if not set
-    config = uvicorn.Config(app, host="0.0.0.0", port=PORT, loop="asyncio")
-    server = uvicorn.Server(config)
+    config = uvicorn.Config(app, host="0.0.0.0", port=PORT, loop="asyncio")server = uvicorn.Server(config)
     await server.serve()
 
 
