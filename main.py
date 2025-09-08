@@ -7,7 +7,7 @@ from gtts import gTTS
 import os
 import uuid
 
-TOKEN = "YOUR_TTS_BOT_TOKEN"
+TOKEN = os.getenv("DISCORD_TOKEN")
 
 intents = discord.Intents.default()
 intents.voice_states = True
@@ -107,3 +107,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
