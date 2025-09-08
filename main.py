@@ -100,7 +100,8 @@ async def auto_disconnect(guild_id: int):
 
 async def start_fastapi():
     PORT = int(os.environ.get("PORT", 8000))  # fallback to 8000 if not set
-    config = uvicorn.Config(app, host="0.0.0.0", port=PORT, loop="asyncio")server = uvicorn.Server(config)
+    config = uvicorn.Config(app, host="0.0.0.0", port=PORT, loop="asyncio")
+    server = uvicorn.Server(config)
     await server.serve()
 
 
@@ -112,3 +113,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
