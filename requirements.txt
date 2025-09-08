@@ -1,0 +1,5 @@
+discord.py[speed]
+fastapi
+uvicorn
+aiohttp
+python-dotenv
