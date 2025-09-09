@@ -16,8 +16,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 app = FastAPI()
 
-# Health check endpoint for uptime monitors
-@app.get("/")
+# Health check endpoint (supports GET and HEAD so Render/UptimeRobot don’t fail)
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"status": "ok", "message": "TTS bot is alive!"}
 
@@ -113,4 +113,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
