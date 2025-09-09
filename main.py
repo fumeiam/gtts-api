@@ -36,12 +36,14 @@ guild_music_queues = {}     # guild_id -> list of track dicts
 guild_autoplay_flags = {}   # guild_id -> bool
 inactivity_tasks = {}       # guild_id -> asyncio.Task
 
+# PATCHED: add cookies.txt to options
 YDL_OPTS = {
     "format": "bestaudio/best",
     "noplaylist": True,
     "quiet": True,
     "extract_flat": "in_playlist",
     "default_search": "ytsearch",
+    "cookiefile": "cookies.txt",  # <--- use your exported cookies here
 }
 
 # PATCH: add ffmpeg opts + resolver
@@ -87,7 +89,6 @@ async def play_next(guild_id: int):
     loop = asyncio.get_event_loop()
 
     try:
-        # PATCHED block
         raw = track.get("url") or track.get("query")
         if not raw:
             print("No URL or query found, skipping…")
@@ -119,7 +120,6 @@ async def play_track(guild_id: int, vc_id: int, query_or_url: str = None, autopl
             track["query"] = query_or_url
     guild_music_queues[guild_id].append(track)
     guild_autoplay_flags[guild_id] = autoplay
-    # if nothing is playing, start immediately
     guild = bot.get_guild(guild_id)
     if guild and (not guild.voice_client or not guild.voice_client.is_playing()):
         await play_next(guild_id)
@@ -211,12 +211,11 @@ async def music_play(request: Request):
     autoplay = bool(data.get("autoplay", False))
     volume = float(data.get("volume", 1.0))
 
-    # NEW PATCH: auto-detect VC if none given
     if not vc_id:
         guild = bot.get_guild(guild_id)
         if guild:
             for channel in guild.voice_channels:
-                if channel.members:  # pick first channel with people
+                if channel.members:
                     vc_id = channel.id
                     break
         if not vc_id:
