@@ -44,6 +44,20 @@ YDL_OPTS = {
     "default_search": "ytsearch",
 }
 
+# PATCH: add ffmpeg opts + resolver
+FFMPEG_OPTIONS = "-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+
+def resolve_audio_url(query: str):
+    try:
+        with YoutubeDL(YDL_OPTS) as ydl:
+            info = ydl.extract_info(query, download=False)
+            if "entries" in info and info["entries"]:
+                info = info["entries"][0]
+            return info.get("url")
+    except Exception as e:
+        print(f"yt-dlp resolve failed: {e}")
+        return None
+
 # --------------------
 # HELPER FUNCTIONS
 # --------------------
@@ -52,7 +66,6 @@ async def play_next(guild_id: int):
     if not queue:
         # Autoplay random if flag is set
         if guild_autoplay_flags.get(guild_id, False):
-            # pick a random YouTube search term
             import random
             query = random.choice(["lofi beats", "chill music", "game music", "relaxing music"])
             await play_track(guild_id, None, query, autoplay=True)
@@ -71,21 +84,26 @@ async def play_next(guild_id: int):
     if not vc or not vc.is_connected():
         vc = await vc_channel.connect()
 
-    ydl_opts = YDL_OPTS.copy()
-    ydl_opts["format"] = "bestaudio/best"
     loop = asyncio.get_event_loop()
 
     try:
-        url = track.get("url")
-        query = track.get("query")
-        if query:
-            with YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(query, download=False)
-                url = info["entries"][0]["url"]
+        # PATCHED block
+        raw = track.get("url") or track.get("query")
+        if not raw:
+            print("No URL or query found, skipping…")
+            await play_next(guild_id)
+            return
 
-        source = discord.FFmpegPCMAudio(url)
+        stream_url = resolve_audio_url(raw)
+        if not stream_url:
+            print("Failed to resolve URL, skipping…")
+            await play_next(guild_id)
+            return
+
+        ffmpeg_source = discord.FFmpegPCMAudio(stream_url, options=FFMPEG_OPTIONS)
+        source = discord.PCMVolumeTransformer(ffmpeg_source)
+        source.volume = track.get("volume", 1.0)
         vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(guild_id), loop))
-        vc.source.volume = track.get("volume", 1.0)
     except Exception as e:
         print(f"Failed to play track: {e}")
         await play_next(guild_id)
@@ -187,12 +205,24 @@ async def leave(request: Request):
 async def music_play(request: Request):
     data = await request.json()
     guild_id = int(data["guild_id"])
-    vc_id = int(data.get("vc_id"))
+    vc_id = data.get("vc_id")
     url = data.get("url")
     query = data.get("query")
     autoplay = bool(data.get("autoplay", False))
     volume = float(data.get("volume", 1.0))
-    await play_track(guild_id, vc_id, url or query, autoplay, volume)
+
+    # NEW PATCH: auto-detect VC if none given
+    if not vc_id:
+        guild = bot.get_guild(guild_id)
+        if guild:
+            for channel in guild.voice_channels:
+                if channel.members:  # pick first channel with people
+                    vc_id = channel.id
+                    break
+        if not vc_id:
+            return {"error": "No vc_id provided and no active voice channel found."}
+
+    await play_track(guild_id, int(vc_id), url or query, autoplay, volume)
     return {"status": "queued"}
 
 @app.post("/skip")
